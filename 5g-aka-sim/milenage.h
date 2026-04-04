@@ -30,9 +30,14 @@
 #ifndef MILENAGE_H
 #define MILENAGE_H
 
-#include <openssl/aes.h>
 
-#include "openair3/SECU/aes_128_ecb.h"
+#include <string.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <openssl/evp.h>
+
+// #include <openssl/aes.h>
+// #include "openair3/SECU/aes_128_ecb.h"
 
 /**
    milenage_f1 - Milenage f1 and f1* algorithms
@@ -46,6 +51,7 @@
    Returns: true on success, false on failure
 */
 
+/** 原始OAI milenage.c的程式碼
 void aes_128_encrypt_block(const uint8_t *key, const uint8_t *in, uint8_t *out)
 {
   abort();
@@ -58,6 +64,25 @@ void aes_128_encrypt_block(const uint8_t *key, const uint8_t *in, uint8_t *out)
   uint8_t tmp[16] = {0};
   aes_128_ecb(&k_iv, msg, sizeof(tmp), tmp);
   memcpy(out, tmp, sizeof(tmp));
+}
+*/
+static void aes_128_encrypt_block(const uint8_t *key, const uint8_t *in, uint8_t *out)
+{
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    int len;
+    
+    // 初始化加密器，設定為 AES 128 ECB 模式
+    EVP_EncryptInit_ex(ctx, EVP_aes_128_ecb(), NULL, key, NULL);
+    
+    // 因為 milenage 的數學運算固定是 16 bytes，不需要自動補齊 (padding)
+    EVP_CIPHER_CTX_set_padding(ctx, 0);
+    
+    // 執行加密
+    EVP_EncryptUpdate(ctx, out, &len, in, 16);
+    EVP_EncryptFinal_ex(ctx, out + len, &len);
+    
+    // 釋放記憶體
+    EVP_CIPHER_CTX_free(ctx);
 }
 
 static bool milenage_f1(const uint8_t *opc,
@@ -376,4 +401,6 @@ static void milenage_opc_gen(const uint8_t *k, const uint8_t *op, uint8_t *opc) 
   for (i = 0; i < 16; i++)
     opc[i] = opc[i] ^ op[i];
 }
+#endif
+
 #endif
