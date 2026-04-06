@@ -38,9 +38,25 @@ int main() {
     if (packet.msg_type == MSG_AUTH_TRIGGER) {
         printf("[Core] 收到認證請求，準備出題...\n");
 
-        // 隨機產生 16 bytes RAND (這裡為了示範寫死，實務上請用 /dev/urandom)
-        uint8_t rand_val[16] = {0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0A,0x0B,0x0C,0x0D,0x0E,0x0F,0x10};
-        memcpy(packet.rand, rand_val, 16);
+        // 隨機產生 16 bytes RAND (使用 /dev/urandom)
+        FILE *fp = fopen("/dev/urandom", "r");
+        if (fp == NULL) {
+            printf("[Core] ❌ 嚴重錯誤：無法開啟 /dev/urandom 產生亂數\n");
+            close(client_socket);
+            close(server_fd);
+            return -1;
+        }
+
+        // 每次從這台亂數產生機「讀取 1 單位 (共 16 bytes)」的資料，直接寫入 packet.rand
+        fread(packet.rand, 1, 16, fp);
+        fclose(fp); // 讀完記得關閉檔案
+
+        //  (選用) 把每次產生的 RAND 印出來，方便你觀察每次連線的不同
+        printf("[Core] 產生全新隨機 RAND: ");
+        for(int i = 0; i < 16; i++) {
+            printf("%02X", packet.rand[i]);
+        }
+        printf("\n");
 
         // 3. 呼叫 milenage 產生 AUTN, XRES, CK, IK
         uint8_t xres[8], ck[16], ik[16], xres_star[16];
